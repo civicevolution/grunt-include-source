@@ -28,7 +28,8 @@ module.exports = function(grunt) {
 				results.push({
 					start: matches.index,
 					end: matches.index + matches[0].length - 1,
-					options: optionsObj
+					options: optionsObj,
+					segmentFound: matches[0]
 				});
 			}
 
@@ -37,7 +38,7 @@ module.exports = function(grunt) {
 	};
 
 	var parsers = {
-		'html': parseSource('HTML', /<!---?\s*include:\s+(.*)\s*-?--\s*>/gi),
+		'html': parseSource('HTML', /<!---?\s*include:\s+(.*)\s*-?--\s*>[\s\S]*?<!---?\s*endinclude\s*-?--\s*>/gim),
 		'haml': parseSource('HAML', /-#\s+include:\s+(.*)/gi),
 		'jade': parseSource('JADE', /\/\/-?\s+include:\s+(.*)/gi),
 		'scss': parseSource('SASS', /\/\/\s+include:\s+(.*)/gi),
@@ -213,7 +214,14 @@ module.exports = function(grunt) {
 					sep = contents.substr(i, include.start + currentOffset - i);
 				}
 				
-				var	includeFragments = [];
+			        var lines = include.segmentFound.split('\n');
+			        var openingTag = lines[0].replace(/s*$/,'');
+				var closingTag = lines[lines.length-1].replace(/^\s*/,'');
+				grunt.log.debug('openingTag: "' + openingTag + '"');
+				grunt.log.debug('closingTag: "' + closingTag + '"');
+
+				
+				var	includeFragments = [ openingTag ];
 				files.forEach(function(file) {
 					grunt.log.debug('Including file "' + file + '".');
 					includeFragments.push(typeTemplates[include.options.type]
@@ -221,7 +229,8 @@ module.exports = function(grunt) {
 						.replace(/\{filePathDecoded\}/g, decodeURI(url.resolve(include.options.baseUrl || options.baseUrl, file)))
 					);
 				});
-
+				includeFragments.push( closingTag );
+				
 				var includeFragment = includeFragments.join(sep);
 
 				contents =
